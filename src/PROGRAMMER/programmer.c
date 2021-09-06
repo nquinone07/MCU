@@ -1,4 +1,7 @@
 #include <avr/io.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <cstdlib>
 
 // Several data registers used to control USART
 // SPBRG - Baud rate generator 
@@ -18,6 +21,8 @@
 // -> Select asyncrhonous transmission (otherwise baudrate is useless), e.g. write SYNC bit in
 //    TXSTA register (clear this bit) and set BRGH bit to select between high and low speed options
 //    for baud rate.
+
 int main(void)
 {
+    return 0;
 }
