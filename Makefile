@@ -3,11 +3,13 @@ AVR_GCC := avr-gcc
 AVR_CP  := avr-objcopy
 AVR_SZ  := avr-size
 AVR_DMP := avr-objdump
+
 ## FLAGS ## 
 DEVICE    := -D__AVR_ATmega168__
-MCU       := -mmcu=atmega168
-RAM_START := -Tdata 0x100 # referencing: /usr/lib/avr/include/avr/iom168.h
+MCU       := -mmcu=atmega168 #-B /usr/lib/gcc/avr/5.4.0/device-specs/
+RAM_START := -Tdata 0x800100 # referencing: /usr/lib/avr/include/avr/iom168.h
 OPTMIZ    := -Os
+OPTS      := -nostartfiles 
 
 ## OUTPUT ##
 BUILD_DIR := build
@@ -15,11 +17,15 @@ BIN_DIR   := bin
 ADD_DIR   := supplementary
 
 ## SOURCE FILES ##
-BOOT     := $(subst ./,,$(shell find . -maxdepth 1 -name \*.S))
-PROGRAM  := $(subst ./,,$(shell find . -maxdepth 1 -name \*.c))
-INCLUDES := $(subst ./,,$(shell find . -maxdepth 1 -name \*.h))
-OBJS     := $(addprefix $(BUILD_DIR)/, $(patsubst %.c,%.o,$(PROGRAM)))
-OBJS     += $(addprefix $(BUILD_DIR)/, $(patsubst %.S,%.o,$(BOOT)))
+BOOT      := $(subst ./,,$(shell find . -maxdepth 1 -name \*.S))
+PROGRAM   := $(subst ./,,$(shell find . -maxdepth 1 -name \*.c))
+SRC_FILES := $(BOOT) $(PROGRAM)
+INCLUDES  := $(subst ./,,$(shell find . -maxdepth 1 -name \*.h))
+OBJS      := $(addprefix $(BUILD_DIR)/, $(patsubst %.c,%.o,$(PROGRAM)))
+OBJS      += $(addprefix $(BUILD_DIR)/, $(patsubst %.S,%.o,$(BOOT)))
+
+## START FILE ##
+START := /usr/lib/avr/lib/avr5/crtatmega168.o
 
 ## TARGET ##
 TARGET  := $(BIN_DIR)/target.elf
@@ -59,9 +65,14 @@ build: $(TARGET)
 $(TARGET): $(OBJS)
 	@echo 
 	@echo "Linking object files. Creating .elf..."
-	$(AVR_GCC) $(MCU) $(RAM_START) -nostartfiles $^ -o $@
+	$(AVR_GCC) $(MCU) $(RAM_START) $(OPTS) $^ $(START) -o $@
 
-$(OBJS): $(BOOT) $(PROGRAM)
+$(BUILD_DIR)/%.o : %.c
+	@echo
+	@echo "Compiling object file [$@]..."
+	$(AVR_GCC) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
+
+$(BUILD_DIR)/%.o : %.S
 	@echo
 	@echo "Compiling object file [$@]..."
 	$(AVR_GCC) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
