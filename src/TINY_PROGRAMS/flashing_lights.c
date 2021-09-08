@@ -5,7 +5,6 @@
 #include <avr/io.h>
 #include <avr/sleep.h>
 #include <util/delay.h>
-#include "macros.h"
 
 #define noop ((void)0)
 

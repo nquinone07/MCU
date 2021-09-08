@@ -5,7 +5,6 @@
 #include <avr/io.h>
 #include <avr/sleep.h>
 #include <util/delay.h>
-#include "macros.h"
 
 #define noop ((void)0)
 
@@ -66,8 +65,10 @@ mustang_lights()
 int 
 main(void)
 {
+    // PORTD Pins 6/7 are configured as input pins (set 0 in data direction register)
+    DDRD &= ~_BV(PORTD7) & ~_BV(PORTD6);
     // Global Interrupt Enable
-    SREG |= SHIFT_ONE_BY(7);
+    SREG |= _BV(7); // setting I-Bit
     // Unmask the Pin Change Interrupt for PCINT23/22
     PCMSK2 |= _BV(DDD7) | _BV(DDD6);
     // Enable Pin Change Interrupts for PCINT23..16 (these interrupts map to PORT D)
