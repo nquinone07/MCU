@@ -13,66 +13,84 @@ OPTS      := -nostartfiles
 
 ## OUTPUT ##
 BUILD_DIR := build
+BARE_DIR  := bare
+COMMON_DIR:= common
+RT_DIR    := rtos
 BIN_DIR   := bin
+OUT_DIRS  := $(BUILD_DIR)/$(BARE_DIR) $(BUILD_DIR)/$(RT_DIR) $(BUILD_DIR)/$(COMMON_DIR) $(BIN_DIR)
 ADD_DIR   := supplementary
+SRC_DIR   := src
+
+## RTOS SPECIFIC ## 
+RTOS_INC  :=  -Iinclude -I../FreeRTOSv202107.00/FreeRTOS/Source/include 
 
 ## SOURCE FILES ##
-BOOT      := $(subst ./,,$(shell find . -maxdepth 1 -name \*.S))
-PROGRAM   := $(subst ./,,$(shell find . -maxdepth 1 -name \*.c))
-SRC_FILES := $(BOOT) $(PROGRAM)
-INCLUDES  := $(subst ./,,$(shell find . -maxdepth 1 -name \*.h))
-OBJS      := $(addprefix $(BUILD_DIR)/, $(patsubst %.c,%.o,$(PROGRAM)))
-OBJS      += $(addprefix $(BUILD_DIR)/, $(patsubst %.S,%.o,$(BOOT)))
+SRCS        := $(shell find $(SRC_DIR) -mindepth 1 -name \*.c -o -name \*.S)
+OBJS        := $(subst $(SRC_DIR)/,,$(SRCS:%.c=$(BUILD_DIR)/%.o))
+RT_OBJS     := $(filter $(BUILD_DIR)/$(RT_DIR)/%.o,$(OBJS))
+BARE_OBJS   := $(filter $(BUILD_DIR)/$(BARE_DIR)/%.o,$(OBJS))
+COMMON_OBJS := $(filter $(BUILD_DIR)/$(COMMON_DIR)/%.o,$(OBJS))
 
 ## START FILE ##
 START := /usr/lib/avr/lib/avr5/crtatmega168.o
 
-## TARGET ##
-TARGET  := $(BIN_DIR)/target.elf
-HEX_OUT := $(BIN_DIR)/target.hex
+## TARGETS ##
+BARE_BIN           := $(BIN_DIR)/bare-target.elf
+BARE_HEX_OUT       := $(BIN_DIR)/bare-target.hex
+RTOS_BIN           := $(BIN_DIR)/rt-target.elf
+RTOS_HEX_OUT       := $(BIN_DIR)/rt-target.hex
 
 ## PHONY ##
 .PHONY: all setup clean build
 
 ## RECIPES ##
-all: setup build
+all: build-bare build-rtos
+	@echo
+	@echo "Finished! All binaries were created... Use the programmer in tools/ to ship any binary over to your atmel!"
 
 printenv:
 	@echo 
 	@echo "OBJECTS  : $(OBJS)"
-	@echo "PROGRAM  : $(PROGRAM)"
+	@echo "SOURCES  : $(SRCS)"
 	@echo "BOOT     : $(BOOT)"
 	@echo "INCLUDES : $(INCLUDES)"
 	@echo 
 
 setup:
 	@echo 
-	@echo "Setting up output directories [$(BIN_DIR), $(BUILD_DIR)]..."
-	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(ADD_DIR)
+	@echo "Setting up output directories [$(OUT_DIRS)]..."
+	@mkdir -p $(OUT_DIRS) $(ADD_DIR)
 
 clean:
 	@echo 
 	@echo "Cleaning output directories..."
 	@rm -rf $(BIN_DIR) $(BUILD_DIR) $(ADD_DIR)
 
-build: $(TARGET)
-	@echo 
-	@echo "Binary created @ $(TARGET)! Creating Intel Hex File $(HEX_OUT)..."
-	$(AVR_DMP) -S -h $(TARGET) > "$(ADD_DIR)/target.lss"
-	$(AVR_CP) -j .text -j .data -j .bss -O ihex $(TARGET) $(HEX_OUT)
-	$(AVR_SZ) --format=avr --mcu=atmega168 $(TARGET)
+build-rtos: setup $(RTOS_BIN) $(RTOS_HEX_OUT)
 
-$(TARGET): $(OBJS)
+build-bare: setup $(BARE_BIN) 
+	@echo 
+	@echo "Binary created: $(BARE_BIN)! Creating Intel Hex File..."
+	$(AVR_DMP) -S -h $(BARE_BIN) > "$(ADD_DIR)/$(notdir $(basename $<)).lss"
+	$(AVR_CP) -j .text -j .data -j .bss -O ihex $(BARE_BIN) $(BARE_HEX_OUT)
+	$(AVR_SZ) --format=avr --mcu=atmega168 $(BARE_BIN)
+
+$(BARE_BIN): $(BARE_OBJS) $(COMMON_OBJS) 
 	@echo 
 	@echo "Linking object files. Creating .elf..."
 	$(AVR_GCC) $(MCU) $(RAM_START) $(OPTS) $^ $(START) -o $@
 
-$(BUILD_DIR)/%.o : %.c
+$(BUILD_DIR)/$(RT_DIR)/%.o : $(SRC_DIR)/$(RT_DIR)/%.c
 	@echo
 	@echo "Compiling object file [$@]..."
 	$(AVR_GCC) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
 
-$(BUILD_DIR)/%.o : %.S
+$(BUILD_DIR)/$(BARE_DIR)/%.o : $(SRC_DIR)/$(BARE_DIR)/%.c
 	@echo
 	@echo "Compiling object file [$@]..."
-	$(AVR_GCC) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
+	$(AVR_GCC) -I$(SRC_DIR) -I$(SRC_DIR)/$(COMMON_DIR) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
+
+$(BUILD_DIR)/$(COMMON_DIR)/%.o : $(SRC_DIR)/$(COMMON_DIR)/%.c
+	@echo
+	@echo "Compiling object file [$@]..."
+	$(AVR_GCC) -std=c11 -I$(SRC_DIR)/$(COMMON_DIR) -g $(MCU) $(DEVICE) $(OPTMIZ) -c $< -o $@
