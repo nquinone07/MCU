@@ -1,3 +1,4 @@
 bin/*
 build/*
 supplementary/*
+.old_programs/*
